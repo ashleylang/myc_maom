@@ -1,0 +1,489 @@
+---
+title: "Myc_MAOM Project"
+subtitle: Wed March 18 2020
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(ggpubr)
+library(cowplot)
+myc.maom=read.csv("~/Documents/Projects/inProgress/Myc_MAOM/data/myc.maom.data.csv") %>%
+  mutate(species=case_when(Species=="ACSA" ~ "Maple",
+                           Species=="FRAM" ~ "Ash",
+                           Species=="FAGR" ~ "Beech",
+                           Species=="BEAL" ~ "Birch",
+                           Species=="THOC" ~ "Cedar",
+                           Species=="TSCA" ~ "Hemlock"),
+         gC.as.FLF=((FLF.pct.C/100)*FLF.g)*(Sample.mass/20),
+         gC.as.OLF=((OLF.pct.C/100)*OLF.g)*(Sample.mass/20),
+         gC.as.HF=((HF.pct.C/100)*HF.g)*(Sample.mass/20),
+         gN.as.FLF=((FLF.pct.N/100)*FLF.g)*(Sample.mass/20),
+         gN.as.OLF=((OLF.pct.N/100)*OLF.g)*(Sample.mass/20),
+         gN.as.HF=((HF.pct.N/100)*HF.g)*(Sample.mass/20)) %>% 
+  mutate(propC.as.FLF=gC.as.FLF/(gC.as.FLF+gC.as.OLF+gC.as.HF),
+         propC.as.OLF=gC.as.OLF/(gC.as.FLF+gC.as.OLF+gC.as.HF),
+         propC.as.HF=gC.as.HF/(gC.as.FLF+gC.as.OLF+gC.as.HF),
+         propN.as.FLF=gN.as.FLF/(gN.as.FLF+gN.as.OLF+gN.as.HF),
+         propN.as.OLF=gN.as.OLF/(gN.as.FLF+gN.as.OLF+gN.as.HF),
+         propN.as.HF=gN.as.HF/(gN.as.FLF+gN.as.OLF+gN.as.HF),
+         litterqual=case_when(Species=="ACSA" ~ "Medium",
+                           Species=="FRAM" ~ "High",
+                           Species=="FAGR" ~ "Medium",
+                           Species=="BEAL" ~ "High",
+                           Species=="THOC" ~ "Low",
+                           Species=="TSCA" ~ "Low")) %>% 
+  filter(OLF.g<2)
+
+myc.maom$litterqual <- factor(myc.maom$litterqual, levels = c("Low", "Medium", "High"))
+
+```
+****
+## Data Summary
+
+These are data about soil carbon and nitrogen content in various forests around the upper valley. I chose sites based on the tree species that grew there-- one of six target species needed to dominate (>60% BA) the plot. I looked for each tree species in multiple sites to make sure I wasn't confusing site effects from tree species effects. The species were chosen to span a range of litter qualities (for now, calling these "Low", "Medium" and "High") and mycorrhizal associations (AM & ECM).
+
+###First let's see some distributions:
+```{r summaryplots, echo=FALSE, warning=FALSE, message=FALSE}
+a=ggplot(myc.maom, aes(x=org.pct.C))+geom_histogram(binwidth=5, color= "black",fill="white")+theme_cowplot()
+b=ggplot(myc.maom, aes(x=org.pct.N))+geom_histogram(binwidth=0.2, color= "black",fill="white")+theme_cowplot()
+c=ggplot(myc.maom, aes(x=min.pct.C))+geom_histogram(binwidth=1, color= "black",fill="white")+theme_cowplot()
+d=ggplot(myc.maom, aes(x=min.pct.N))+geom_histogram(binwidth=0.075, color= "black",fill="white")+theme_cowplot()
+
+summary1=ggarrange(a,b,c,d,ncol=2, nrow=2)
+summary1
+
+e=ggplot(myc.maom, aes(x=FLF.pct.C))+geom_histogram(binwidth=4, color= "black",fill="white")+theme_cowplot()
+f=ggplot(myc.maom, aes(x=FLF.pct.N))+geom_histogram(binwidth=0.2, color= "black",fill="white")+theme_cowplot()
+g=ggplot(myc.maom, aes(x=OLF.pct.C))+geom_histogram(binwidth=1, color= "black",fill="white")+theme_cowplot()
+h=ggplot(myc.maom, aes(x=OLF.pct.N))+geom_histogram(binwidth=0.2, color= "black",fill="white")+theme_cowplot()
+i=ggplot(myc.maom, aes(x=HF.pct.C))+geom_histogram(binwidth=0.8, color= "black",fill="white")+theme_cowplot()
+j=ggplot(myc.maom, aes(x=HF.pct.N))+geom_histogram(binwidth=0.05, color= "black",fill="white")+theme_cowplot()
+
+summary2=ggarrange(e,f,g,h,i,j, ncol=2, nrow=3)
+summary2
+```
+
+There were some outliers in here that Caitlin suggested I remove. One spot possibly experienced a fire in the past, she thought.
+
+****
+
+###How do species and site affect % C and N in the organic horizon? (bulk soil) :
+```{r organic, echo=FALSE, warning=FALSE, message=FALSE, fig.width=12}
+org1=ggplot(myc.maom, aes(x=species, y=org.pct.C, colour=Site))+geom_point(size=3, alpha=0.5)+
+  stat_summary(fun= mean, fun.min=mean, fun.max=mean, geom="crossbar", width=0.5)+
+  stat_summary(fun.data = mean_se, geom = "errorbar", width=0.2)+
+  labs(x=" ", y="% C in organic horizon")+
+  theme_cowplot()+
+  theme(axis.title=element_text(size=16,face="bold"))
+
+org2=ggplot(myc.maom, aes(x=species, y=org.pct.N, colour=Site))+geom_point(size=3, alpha=0.5)+
+  stat_summary(fun= mean, fun.min=mean, fun.max=mean, geom="crossbar", width=0.5)+
+  stat_summary(fun.data = mean_se, geom = "errorbar", width=0.2)+
+  labs(x=" ", y="% N in organic horizon")+
+  theme_cowplot()+
+  theme(axis.title=element_text(size=16,face="bold"))
+
+orgplots=ggarrange(org1, org2, common.legend=TRUE, legend="right")
+orgplots
+```
+
+****
+
+###And in the mineral horizon?
+```{r mineral, echo=FALSE, warning=FALSE, fig.width=12}
+min1=ggplot(myc.maom, aes(x=species, y=min.pct.C, colour=Site))+geom_point(size=3, alpha=0.5)+
+  stat_summary(fun= mean, fun.min=mean, fun.max=mean, geom="crossbar", width=0.5)+
+  stat_summary(fun.data = mean_se, geom = "errorbar", width=0.2)+
+  labs(x=" ", y="% C in mineral horizon")+
+  theme_cowplot()+
+  theme(axis.title=element_text(size=16,face="bold"))
+
+min2=ggplot(myc.maom, aes(x=species, y=min.pct.N, colour=Site))+geom_point(size=3, alpha=0.5)+
+  stat_summary(fun= mean, fun.min=mean, fun.max=mean, geom="crossbar", width=0.5)+
+  stat_summary(fun.data = mean_se, geom = "errorbar", width=0.2)+
+  labs(x=" ", y="% N in mineral horizon")+
+  theme_cowplot()+
+  theme(axis.title=element_text(size=16,face="bold"))
+
+minplots=ggarrange(min1, min2, common.legend=TRUE, legend="right")
+minplots
+```
+
+****
+
+##This is all well and good, but what we really care about is how this mineral C and N is distributed in different soil pools. There are several ways to view this.
+###Let's look at both the amount of carbon in three important soil "fractions"" and the proportion of the total carbon that is stored as each type.
+The three soil fractions are "free light" material, "occluded light" material, and "heavy" material. Free light material is mostly intact leaves, roots, and other organic material. It is the least decomposed. This stuff is going to decompose eventually, so we can think of it as a pool that is vulnerable to mineralization (being passed through microbes and made into inorganic matter, like CO2). It's called "light" because it is not dense, and floats in a solution of heavy liquid. Occluded light material is also "light" in the sense that it floats in a dense solution, but it is not "free"--it would not float to the top if you dunked a handful of soil into a bucket of water. Instead, this material is stuck inside soil aggregates, which are heavy enough not to come to the surface even though the material on it's own would normally do so. It may also be stuck to some heavier material surfaces. We get it out by agitating the soil and then it floats to the top. Finally, everything that is left is the "heavy" fraction because it is mostly minerals like sand, silt and clay. It sinks in even a very dense liquid. A small amount of organic matter is stuck to these minerals and we can think of that material as being inaccessible to soil decomposers. They can't break it free from the bonds that hold it to mineral surfaces, even with an input of energy. This stuff can remain in soil for centuries and is an important long-term sink that may *not* be vulnerable to mineralization, even with changing soil moisture and temperature.  
+
+****
+
+```{r flf, echo=FALSE, warning=FALSE, fig.width=12}
+
+flf1=ggplot(myc.maom, aes(x=species,y=gC.as.FLF,colour=Site))+
+  geom_point(size=3, alpha=0.5)+
+  stat_summary(fun= mean, fun.min=mean, fun.max=mean, geom="crossbar", width=0.5)+
+  stat_summary(fun.data = mean_se, geom = "errorbar", width=0.2)+
+  labs(x=" ", y="g C in FLF")+
+  theme_cowplot()+ 
+  theme(plot.title = element_text(hjust = 0.5), axis.title=element_text(size=14,face="bold"))
+
+flf2=ggplot(myc.maom, aes(x=species, y=propC.as.FLF, colour=Site))+geom_point(size=3, alpha=0.5)+
+  stat_summary(fun= mean, fun.min=mean, fun.max=mean, geom="crossbar", width=0.5)+
+  stat_summary(fun.data = mean_se, geom = "errorbar", width=0.2)+
+  labs(x=" ", y="proportion C in FLF")+
+  theme_cowplot()+ 
+  theme(plot.title = element_text(hjust = 0.5), axis.title=element_text(size=14,face="bold"))
+
+flf.plots=ggarrange(flf1,flf2, nrow=1,ncol=2, common.legend=TRUE, legend="right")
+annotate_figure(flf.plots,top = text_grob("Free light fraction", color = "black", face = "bold", size = 18))
+
+```  
+
+  ****
+
+```{r olf, echo=FALSE, warning=FALSE, fig.width=12}
+olf1=ggplot(myc.maom, aes(x=species,y=gC.as.OLF,colour=Site))+
+  geom_point(size=3, alpha=0.5)+
+  stat_summary(fun= mean, fun.min=mean, fun.max=mean, geom="crossbar", width=0.5)+
+  stat_summary(fun.data = mean_se, geom = "errorbar", width=0.2)+
+  labs(x=" ", y="g C in OLF")+
+  theme_cowplot()+ 
+  theme(plot.title = element_text(hjust = 0.5), axis.title=element_text(size=14,face="bold"))
+
+olf2=ggplot(myc.maom, aes(x=species, y=propC.as.OLF, colour=Site))+geom_point(size=3, alpha=0.5)+
+  stat_summary(fun= mean, fun.min=mean, fun.max=mean, geom="crossbar", width=0.5)+
+  stat_summary(fun.data = mean_se, geom = "errorbar", width=0.2)+
+  labs(x=" ", y="proportion C in OLF")+
+  theme_cowplot()+ 
+  theme(plot.title = element_text(hjust = 0.5), axis.title=element_text(size=14,face="bold"))
+
+olf.plots=ggarrange(olf1,olf2, nrow=1,ncol=2, common.legend=TRUE, legend="right")
+annotate_figure(olf.plots,top = text_grob("Occluded light fraction", color = "black", face = "bold", size = 18))
+
+```  
+  
+  ****
+
+```{r hf, echo=FALSE, warning=FALSE, fig.width=12}
+hf1=ggplot(myc.maom, aes(x=species,y=gC.as.HF,colour=Site))+
+  geom_point(size=3, alpha=0.5)+
+  stat_summary(fun= mean, fun.min=mean, fun.max=mean, geom="crossbar", width=0.5)+
+  stat_summary(fun.data = mean_se, geom = "errorbar", width=0.2)+
+  labs(x=" ", y="g C in HF")+
+  theme_cowplot()+ 
+  theme(plot.title = element_text(hjust = 0.5), axis.title=element_text(size=14,face="bold"))
+
+hf2=ggplot(myc.maom, aes(x=species, y=propC.as.HF, colour=Site))+geom_point(size=3, alpha=0.5)+
+  stat_summary(fun= mean, fun.min=mean, fun.max=mean, geom="crossbar", width=0.5)+
+  stat_summary(fun.data = mean_se, geom = "errorbar", width=0.2)+
+  labs(x=" ", y="proportion C in HF")+
+  theme_cowplot()+ 
+  theme(plot.title = element_text(hjust = 0.5), axis.title=element_text(size=14,face="bold"))
+
+hf.plots=ggarrange(hf1,hf2, nrow=1,ncol=2, common.legend=TRUE, legend="right")
+annotate_figure(hf.plots,top = text_grob("Heavy fraction", color = "black", face = "bold", size = 18))
+
+```  
+
+****
+
+###We can see that both site and species seem to influence some of these pools, but it's messy and hard to see clear patterns.   Let's try to look at these with respect to the hypothesized drivers: litter quality and mycorrhizal associations of the trees.
+
+```{r litterqual, echo=FALSE, warning=FALSE, message=FALSE, fig.width=12, fig.height=14}
+
+flflitter1=ggplot(myc.maom, aes(x=litterqual,y=gC.as.FLF))+
+  #geom_point(size=3)+
+  stat_summary(fun= mean, fun.min=mean, fun.max=mean, geom="crossbar", width=0.5)+
+  stat_summary(fun.data = mean_se, geom = "errorbar", width=0.2)+
+  labs(x="  ", y="g C in FLF")+
+  theme_cowplot()+ 
+  theme(plot.title = element_text(hjust = 0.5), axis.title=element_text(size=14,face="bold"))
+
+flflitter2=ggplot(myc.maom, aes(x=litterqual, y=propC.as.FLF))+#geom_point(size=3)+
+  stat_summary(fun= mean, fun.min=mean, fun.max=mean, geom="crossbar", width=0.5)+
+  stat_summary(fun.data = mean_se, geom = "errorbar", width=0.2)+
+  labs(x="  ", y="proportion C in FLF")+
+  theme_cowplot()+ 
+  theme(plot.title = element_text(hjust = 0.5), axis.title=element_text(size=14,face="bold"))
+
+olflitter1=ggplot(myc.maom, aes(x=litterqual,y=gC.as.OLF))+
+  #geom_point(size=3)+
+  stat_summary(fun= mean, fun.min=mean, fun.max=mean, geom="crossbar", width=0.5)+
+  stat_summary(fun.data = mean_se, geom = "errorbar", width=0.2)+
+  labs(x="  ", y="g C in OLF")+
+  theme_cowplot()+ 
+  theme(plot.title = element_text(hjust = 0.5), axis.title=element_text(size=14,face="bold"))
+
+olflitter2=ggplot(myc.maom, aes(x=litterqual, y=propC.as.OLF))+
+  #geom_point(size=3)+
+  stat_summary(fun= mean, fun.min=mean, fun.max=mean, geom="crossbar", width=0.5)+
+  stat_summary(fun.data = mean_se, geom = "errorbar", width=0.2)+
+  labs(x="  ", y="proportion C in OLF")+
+  theme_cowplot()+ 
+  theme(plot.title = element_text(hjust = 0.5), axis.title=element_text(size=14,face="bold"))
+
+hflitter1=ggplot(myc.maom, aes(x=litterqual,y=gC.as.HF))+
+  #geom_point(size=3)+
+  stat_summary(fun= mean, fun.min=mean, fun.max=mean, geom="crossbar", width=0.5)+
+  stat_summary(fun.data = mean_se, geom = "errorbar", width=0.2)+
+  labs(x=" Litter quality ", y="g C in HF")+
+  theme_cowplot()+ 
+  theme(plot.title = element_text(hjust = 0.5), axis.title=element_text(size=14,face="bold"))
+
+hflitter2=ggplot(myc.maom, aes(x=litterqual, y=propC.as.HF))+
+  #geom_point(size=3)+
+  stat_summary(fun= mean, fun.min=mean, fun.max=mean, geom="crossbar", width=0.5)+
+  stat_summary(fun.data = mean_se, geom = "errorbar", width=0.2)+
+  labs(x="  ", y="proportion C in HF")+
+  theme_cowplot()+ 
+  theme(plot.title = element_text(hjust = 0.5), axis.title=element_text(size=14,face="bold"))
+
+litter.plots=ggarrange(flflitter1,flflitter2,olflitter1,olflitter2,hflitter1,hflitter2, nrow=3,ncol=2, common.legend=TRUE, legend="right")
+annotate_figure(litter.plots,top = text_grob("Litter Quality", color = "black", face = "bold", size = 18))
+```
+
+***
+
+```{r myctype, echo=FALSE, warning=FALSE, message=FALSE, fig.width=12, fig.height=14}
+flfmyc1=ggplot(myc.maom, aes(x=Myc,y=gC.as.FLF))+
+  #geom_point(size=3)+
+  stat_summary(fun= mean, fun.min=mean, fun.max=mean, geom="crossbar", width=0.5)+
+  stat_summary(fun.data = mean_se, geom = "errorbar", width=0.2)+
+  labs(x="  ", y="g C in FLF")+
+  theme_cowplot()+ 
+  theme(plot.title = element_text(hjust = 0.5), axis.title=element_text(size=14,face="bold"))
+
+flfmyc2=ggplot(myc.maom, aes(x=Myc, y=propC.as.FLF))+#geom_point(size=3)+
+  stat_summary(fun= mean, fun.min=mean, fun.max=mean, geom="crossbar", width=0.5)+
+  stat_summary(fun.data = mean_se, geom = "errorbar", width=0.2)+
+  labs(x="  ", y="proportion C in FLF")+
+  theme_cowplot()+ 
+  theme(plot.title = element_text(hjust = 0.5), axis.title=element_text(size=14,face="bold"))
+
+olfmyc1=ggplot(myc.maom, aes(x=Myc,y=gC.as.OLF))+
+  #geom_point(size=3)+
+  stat_summary(fun= mean, fun.min=mean, fun.max=mean, geom="crossbar", width=0.5)+
+  stat_summary(fun.data = mean_se, geom = "errorbar", width=0.2)+
+  labs(x="  ", y="g C in OLF")+
+  theme_cowplot()+ 
+  theme(plot.title = element_text(hjust = 0.5), axis.title=element_text(size=14,face="bold"))
+
+olfmyc2=ggplot(myc.maom, aes(x=Myc, y=propC.as.OLF))+#geom_point(size=3)+
+  stat_summary(fun= mean, fun.min=mean, fun.max=mean, geom="crossbar", width=0.5)+
+  stat_summary(fun.data = mean_se, geom = "errorbar", width=0.2)+
+  labs(x="  ", y="proportion C in OLF")+
+  theme_cowplot()+ 
+  theme(plot.title = element_text(hjust = 0.5), axis.title=element_text(size=14,face="bold"))
+
+hfmyc1=ggplot(myc.maom, aes(x=Myc,y=gC.as.HF))+
+  #geom_point(size=3)+
+  stat_summary(fun= mean, fun.min=mean, fun.max=mean, geom="crossbar", width=0.5)+
+  stat_summary(fun.data = mean_se, geom = "errorbar", width=0.2)+
+  labs(x="  ", y="g C in HF")+
+  theme_cowplot()+ 
+  theme(plot.title = element_text(hjust = 0.5), axis.title=element_text(size=14,face="bold"))
+
+hfmyc2=ggplot(myc.maom, aes(x=Myc, y=propC.as.HF))+#geom_point(size=3)+
+  stat_summary(fun= mean, fun.min=mean, fun.max=mean, geom="crossbar", width=0.5)+
+  stat_summary(fun.data = mean_se, geom = "errorbar", width=0.2)+
+  labs(x="  ", y="proportion C in HF")+
+  theme_cowplot()+ 
+  theme(plot.title = element_text(hjust = 0.5), axis.title=element_text(size=14,face="bold"))
+
+myc.plots=ggarrange(flfmyc1,flfmyc2,olfmyc1,olfmyc2,hfmyc1,hfmyc2, nrow=3,ncol=2, common.legend=TRUE, legend="right")
+annotate_figure(myc.plots,top = text_grob("Mycorrhizal type", color = "black", face = "bold", size = 18))
+
+```
+
+###Looks like some of the C pools are dependent on litter quality, and not so much mycorrhizal type. Still a lot of variation due to site and other unknown soil conditions that might influence these patterns. I am thinking about statistical analyses that can hopefully tease apart some of the unimportant variation from the hypothesized drivers.   Thoughts?
+
+*****
+
+*****
+
+*****
+
+###Now we'll do the same for N:
+
+
+```{r flfN, echo=FALSE, warning=FALSE, fig.width=12}
+
+nflf1=ggplot(myc.maom, aes(x=species,y=gN.as.FLF,colour=Site))+
+  geom_point(size=3, alpha=0.5)+
+  stat_summary(fun= mean, fun.min=mean, fun.max=mean, geom="crossbar", width=0.5)+
+  stat_summary(fun.data = mean_se, geom = "errorbar", width=0.2)+
+  labs(x=" ", y="g N in FLF")+
+  theme_cowplot()+ 
+  theme(plot.title = element_text(hjust = 0.5), axis.title=element_text(size=14,face="bold"))
+
+nflf2=ggplot(myc.maom, aes(x=species, y=propN.as.FLF, colour=Site))+geom_point(size=3, alpha=0.5)+
+  stat_summary(fun= mean, fun.min=mean, fun.max=mean, geom="crossbar", width=0.5)+
+  stat_summary(fun.data = mean_se, geom = "errorbar", width=0.2)+
+  labs(x=" ", y="proportion N in FLF")+
+  theme_cowplot()+ 
+  theme(plot.title = element_text(hjust = 0.5), axis.title=element_text(size=14,face="bold"))
+
+nflf.plots=ggarrange(nflf1,nflf2, nrow=1,ncol=2, common.legend=TRUE, legend="right")
+annotate_figure(nflf.plots,top = text_grob("Free light fraction", color = "black", face = "bold", size = 18))
+
+```  
+
+  ****
+
+```{r olfN, echo=FALSE, warning=FALSE, fig.width=12}
+nolf1=ggplot(myc.maom, aes(x=species,y=gN.as.OLF,colour=Site))+
+  geom_point(size=3, alpha=0.5)+
+  stat_summary(fun= mean, fun.min=mean, fun.max=mean, geom="crossbar", width=0.5)+
+  stat_summary(fun.data = mean_se, geom = "errorbar", width=0.2)+
+  labs(x=" ", y="g N in OLF")+
+  theme_cowplot()+ 
+  theme(plot.title = element_text(hjust = 0.5), axis.title=element_text(size=14,face="bold"))
+
+nolf2=ggplot(myc.maom, aes(x=species, y=propN.as.OLF, colour=Site))+geom_point(size=3, alpha=0.5)+
+  stat_summary(fun= mean, fun.min=mean, fun.max=mean, geom="crossbar", width=0.5)+
+  stat_summary(fun.data = mean_se, geom = "errorbar", width=0.2)+
+  labs(x=" ", y="proportion N in OLF")+
+  theme_cowplot()+ 
+  theme(plot.title = element_text(hjust = 0.5), axis.title=element_text(size=14,face="bold"))
+
+nolf.plots=ggarrange(nolf1,nolf2, nrow=1,ncol=2, common.legend=TRUE, legend="right")
+annotate_figure(nolf.plots,top = text_grob("Occluded light fraction", color = "black", face = "bold", size = 18))
+
+```  
+  
+  ****
+
+```{r hfN, echo=FALSE, warning=FALSE, fig.width=12}
+nhf1=ggplot(myc.maom, aes(x=species,y=gN.as.HF,colour=Site))+
+  geom_point(size=3, alpha=0.5)+
+  stat_summary(fun= mean, fun.min=mean, fun.max=mean, geom="crossbar", width=0.5)+
+  stat_summary(fun.data = mean_se, geom = "errorbar", width=0.2)+
+  labs(x=" ", y="g N in HF")+
+  theme_cowplot()+ 
+  theme(plot.title = element_text(hjust = 0.5), axis.title=element_text(size=14,face="bold"))
+
+nhf2=ggplot(myc.maom, aes(x=species, y=propN.as.HF, colour=Site))+geom_point(size=3, alpha=0.5)+
+  stat_summary(fun= mean, fun.min=mean, fun.max=mean, geom="crossbar", width=0.5)+
+  stat_summary(fun.data = mean_se, geom = "errorbar", width=0.2)+
+  labs(x=" ", y="proportion N in HF")+
+  theme_cowplot()+ 
+  theme(plot.title = element_text(hjust = 0.5), axis.title=element_text(size=14,face="bold"))
+
+nhf.plots=ggarrange(nhf1,nhf2, nrow=1,ncol=2, common.legend=TRUE, legend="right")
+annotate_figure(nhf.plots,top = text_grob("Heavy fraction", color = "black", face = "bold", size = 18))
+
+```  
+
+****
+
+###We can see that both site and species seem to influence some of these pools, but it's messy and hard to see clear patterns.   Let's try to look at these with respect to the hypothesized drivers: litter quality and mycorrhizal associations of the trees.
+
+```{r litterqualN, echo=FALSE, warning=FALSE, message=FALSE, fig.width=12, fig.height=14}
+
+nflflitter1=ggplot(myc.maom, aes(x=litterqual,y=gN.as.FLF))+
+  #geom_point(size=3)+
+  stat_summary(fun= mean, fun.min=mean, fun.max=mean, geom="crossbar", width=0.5)+
+  stat_summary(fun.data = mean_se, geom = "errorbar", width=0.2)+
+  labs(x="  ", y="g N in FLF")+
+  theme_cowplot()+ 
+  theme(plot.title = element_text(hjust = 0.5), axis.title=element_text(size=14,face="bold"))
+
+nflflitter2=ggplot(myc.maom, aes(x=litterqual, y=propN.as.FLF))+#geom_point(size=3)+
+  stat_summary(fun= mean, fun.min=mean, fun.max=mean, geom="crossbar", width=0.5)+
+  stat_summary(fun.data = mean_se, geom = "errorbar", width=0.2)+
+  labs(x="  ", y="proportion N in FLF")+
+  theme_cowplot()+ 
+  theme(plot.title = element_text(hjust = 0.5), axis.title=element_text(size=14,face="bold"))
+
+nolflitter1=ggplot(myc.maom, aes(x=litterqual,y=gN.as.OLF))+
+  #geom_point(size=3)+
+  stat_summary(fun= mean, fun.min=mean, fun.max=mean, geom="crossbar", width=0.5)+
+  stat_summary(fun.data = mean_se, geom = "errorbar", width=0.2)+
+  labs(x="  ", y="g N in OLF")+
+  theme_cowplot()+ 
+  theme(plot.title = element_text(hjust = 0.5), axis.title=element_text(size=14,face="bold"))
+
+nolflitter2=ggplot(myc.maom, aes(x=litterqual, y=propN.as.OLF))+
+  #geom_point(size=3)+
+  stat_summary(fun= mean, fun.min=mean, fun.max=mean, geom="crossbar", width=0.5)+
+  stat_summary(fun.data = mean_se, geom = "errorbar", width=0.2)+
+  labs(x="  ", y="proportion N in OLF")+
+  theme_cowplot()+ 
+  theme(plot.title = element_text(hjust = 0.5), axis.title=element_text(size=14,face="bold"))
+
+nhflitter1=ggplot(myc.maom, aes(x=litterqual,y=gN.as.HF))+
+  #geom_point(size=3)+
+  stat_summary(fun= mean, fun.min=mean, fun.max=mean, geom="crossbar", width=0.5)+
+  stat_summary(fun.data = mean_se, geom = "errorbar", width=0.2)+
+  labs(x=" Litter quality ", y="g N in HF")+
+  theme_cowplot()+ 
+  theme(plot.title = element_text(hjust = 0.5), axis.title=element_text(size=14,face="bold"))
+
+nhflitter2=ggplot(myc.maom, aes(x=litterqual, y=propN.as.HF))+
+  #geom_point(size=3)+
+  stat_summary(fun= mean, fun.min=mean, fun.max=mean, geom="crossbar", width=0.5)+
+  stat_summary(fun.data = mean_se, geom = "errorbar", width=0.2)+
+  labs(x="  ", y="proportion N in HF")+
+  theme_cowplot()+ 
+  theme(plot.title = element_text(hjust = 0.5), axis.title=element_text(size=14,face="bold"))
+
+nlitter.plots=ggarrange(nflflitter1,nflflitter2,nolflitter1,nolflitter2,nhflitter1,nhflitter2, nrow=3,ncol=2, common.legend=TRUE, legend="right")
+annotate_figure(nlitter.plots,top = text_grob("Litter Quality", color = "black", face = "bold", size = 18))
+```
+
+***
+
+```{r myctypeN, echo=FALSE, warning=FALSE, message=FALSE, fig.width=12, fig.height=14}
+nflfmyc1=ggplot(myc.maom, aes(x=Myc,y=gN.as.FLF))+
+  #geom_point(size=3)+
+  stat_summary(fun= mean, fun.min=mean, fun.max=mean, geom="crossbar", width=0.5)+
+  stat_summary(fun.data = mean_se, geom = "errorbar", width=0.2)+
+  labs(x="  ", y="g N in FLF")+
+  theme_cowplot()+ 
+  theme(plot.title = element_text(hjust = 0.5), axis.title=element_text(size=14,face="bold"))
+
+nflfmyc2=ggplot(myc.maom, aes(x=Myc, y=propN.as.FLF))+#geom_point(size=3)+
+  stat_summary(fun= mean, fun.min=mean, fun.max=mean, geom="crossbar", width=0.5)+
+  stat_summary(fun.data = mean_se, geom = "errorbar", width=0.2)+
+  labs(x="  ", y="proportion N in FLF")+
+  theme_cowplot()+ 
+  theme(plot.title = element_text(hjust = 0.5), axis.title=element_text(size=14,face="bold"))
+
+nolfmyc1=ggplot(myc.maom, aes(x=Myc,y=gN.as.OLF))+
+  #geom_point(size=3)+
+  stat_summary(fun= mean, fun.min=mean, fun.max=mean, geom="crossbar", width=0.5)+
+  stat_summary(fun.data = mean_se, geom = "errorbar", width=0.2)+
+  labs(x="  ", y="g N in OLF")+
+  theme_cowplot()+ 
+  theme(plot.title = element_text(hjust = 0.5), axis.title=element_text(size=14,face="bold"))
+
+nolfmyc2=ggplot(myc.maom, aes(x=Myc, y=propN.as.OLF))+#geom_point(size=3)+
+  stat_summary(fun= mean, fun.min=mean, fun.max=mean, geom="crossbar", width=0.5)+
+  stat_summary(fun.data = mean_se, geom = "errorbar", width=0.2)+
+  labs(x="  ", y="proportion N in OLF")+
+  theme_cowplot()+ 
+  theme(plot.title = element_text(hjust = 0.5), axis.title=element_text(size=14,face="bold"))
+
+nhfmyc1=ggplot(myc.maom, aes(x=Myc,y=gN.as.HF))+
+  #geom_point(size=3)+
+  stat_summary(fun= mean, fun.min=mean, fun.max=mean, geom="crossbar", width=0.5)+
+  stat_summary(fun.data = mean_se, geom = "errorbar", width=0.2)+
+  labs(x="  ", y="g N in HF")+
+  theme_cowplot()+ 
+  theme(plot.title = element_text(hjust = 0.5), axis.title=element_text(size=14,face="bold"))
+
+nhfmyc2=ggplot(myc.maom, aes(x=Myc, y=propN.as.HF))+#geom_point(size=3)+
+  stat_summary(fun= mean, fun.min=mean, fun.max=mean, geom="crossbar", width=0.5)+
+  stat_summary(fun.data = mean_se, geom = "errorbar", width=0.2)+
+  labs(x="  ", y="proportion N in HF")+
+  theme_cowplot()+ 
+  theme(plot.title = element_text(hjust = 0.5), axis.title=element_text(size=14,face="bold"))
+
+nmyc.plots=ggarrange(nflfmyc1,nflfmyc2,nolfmyc1,nolfmyc2,nhfmyc1,nhfmyc2, nrow=3,ncol=2, common.legend=TRUE, legend="right")
+annotate_figure(nmyc.plots,top = text_grob("Mycorrhizal type", color = "black", face = "bold", size = 18))
+
+```
