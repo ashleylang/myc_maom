@@ -1,2 +1,4 @@
 # myc_maom
-Data from my third dissertation chapter about mycorrhizae and litter effects on soil C and N
+Tree mycorrhizal associations and foliar chemistry influence the concentration and composition of mineral-associated organic matter in northern temperate forests
+
+
